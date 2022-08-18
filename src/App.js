@@ -54,21 +54,24 @@ function App() {
     let formData = new FormData();
     formData.append("file", fileInput.current.files[0]);
     try {
+      setLoading(true);
       fetch("http://localhost:8080/api/upload", {
         method: 'POST',
         body: formData,
       })
       .then(res => res.json())
       .then(data => {
-        let list = data.map(item => ({...item, key: item.order, lang: item.lang === 'empty' ? '' : item.lang}));
-        setContacts(list);
-        setFiltered(list);
+        setContacts(data);
+        setFiltered(data);
+        setLoading(false);
       })
       .catch(error => {
         message.error(error);
+        setLoading(false);
       });
     } catch (error) {
       message.error('Ошибка:', error);
+      setLoading(false);
     }
   };
 
@@ -88,6 +91,7 @@ function App() {
         method: 'POST',
         body: JSON.stringify({
           text: values.sms,
+          count: values.count || 5,
           recipients: filtered.map(item => item.phone)
         }),
         headers: {
@@ -161,11 +165,13 @@ function App() {
             <Form
               form={smsForm}
               name="smsform"
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
+              layout={'vertical'}
               onFinish={handleFinishSmsFrom}
               onFinishFailed={(error) => console.log(error)}
             >
+              <Form.Item name="count" label={"Количество сообщений для отправки за 1 запрос"}>
+                <Input placeholder={"Введите число от 1 до 5"} />
+              </Form.Item>
               <Form.Item name="sms">
                 <TextArea rows={4} showCount={true} allowClear={true} />
               </Form.Item>

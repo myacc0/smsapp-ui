@@ -134,7 +134,10 @@ ul {
 }
 .active:before {
   cursor: not-allowed;
-  content: '';
+  content: 'Loading...';
+  font-size: 32px;
+  color: #fff;
+  text-align: center;
   display: block;
   width: 100%;
   height: 100%;
