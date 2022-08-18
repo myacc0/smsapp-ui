@@ -33,6 +33,7 @@ function App() {
   const [lang, setLang] = useState('all');
   const [loading, setLoading] = useState(false);
   const [notSent, setNotSent] = useState([]);
+  const [sentCount, setSentCount] = useState(0);
 
   const [contacts, setContacts] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -55,7 +56,7 @@ function App() {
     formData.append("file", fileInput.current.files[0]);
     try {
       setLoading(true);
-      fetch("http://localhost:8080/api/upload", {
+      fetch("/api/upload", {
         method: 'POST',
         body: formData,
       })
@@ -87,7 +88,7 @@ function App() {
 
     setLoading(true);
     try {
-      fetch("http://localhost:8080/api/sms-send", {
+      fetch("/api/sms-send", {
         method: 'POST',
         body: JSON.stringify({
           text: values.sms,
@@ -102,6 +103,7 @@ function App() {
         .then(data => {
           message.success(data.text);
           setNotSent(data.notSent);
+          setSentCount(data.sentCount);
           reset();
         })
         .catch(error => {
@@ -179,6 +181,10 @@ function App() {
                 <Button type="primary" htmlType="submit">Отправить</Button>
               </Form.Item>
             </Form>
+          </div>
+
+          <div className="m-t-30 p-l-40">
+            <h3>Отправлено: (<b>{sentCount}</b>)</h3>
           </div>
 
           {notSent.length > 0 && (
