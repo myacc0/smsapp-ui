@@ -1,37 +1,38 @@
 import React, {useEffect, useState, useRef} from "react";
-import {Alert, Button, Form, Input, Select, Table, message} from "antd";
+import {Button, Form, Input, Select, Table, message} from "antd";
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+const columnsRecipients = [
+  {
+    title: '#',
+    dataIndex: 'order',
+    key: 'order',
+  },
+  {
+    title: 'ФИО',
+    dataIndex: 'name',
+    key: 'name',
+  },
+  {
+    title: 'Телефон',
+    dataIndex: 'phone',
+    key: 'phone',
+  },
+  {
+    title: 'Язык',
+    dataIndex: 'lang',
+    key: 'lang',
+  },
+];
 
 function App() {
   const fileInput = useRef(null);
   const [smsForm] = Form.useForm();
   const [lang, setLang] = useState('all');
   const [loading, setLoading] = useState(false);
-
-  const columns = [
-    {
-      title: '#',
-      dataIndex: 'order',
-      key: 'order',
-    },
-    {
-      title: 'ФИО',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Телефон',
-      dataIndex: 'phone',
-      key: 'phone',
-    },
-    {
-      title: 'Язык',
-      dataIndex: 'lang',
-      key: 'lang',
-    },
-  ];
+  const [notSent, setNotSent] = useState([]);
 
   const [contacts, setContacts] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -87,15 +88,16 @@ function App() {
         method: 'POST',
         body: JSON.stringify({
           text: values.sms,
-          contacts: filtered.map(item => item.phone)
+          recipients: filtered.map(item => item.phone)
         }),
         headers: {
           "Content-Type": "application/json"
         }
       })
-        .then(res => res.text())
+        .then(res => res.json())
         .then(data => {
-          message.success(data);
+          message.success(data.text);
+          setNotSent(data.notSent);
           reset();
         })
         .catch(error => {
@@ -146,7 +148,7 @@ function App() {
               <Table
                 bordered={true}
                 dataSource={filtered}
-                columns={columns}
+                columns={columnsRecipients}
                 pagination={false}
               />
             </div>
@@ -172,6 +174,19 @@ function App() {
               </Form.Item>
             </Form>
           </div>
+
+          {notSent.length > 0 && (
+            <div className="m-t-30 p-l-40">
+              <h3>Не отправленные номера: (<b>{notSent.length}</b>)</h3>
+              <ul>
+                {
+                  notSent.map((item, index) => (
+                    <li key={`notsent${index}`}>#. {item}</li>
+                  ))
+                }
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>
