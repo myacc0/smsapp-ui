@@ -1,124 +1,148 @@
-import React, {useEffect, useState} from "react";
-import {Button, Form, Input, Select, Table, Upload} from "antd";
+import React, {useEffect, useState, useRef} from "react";
+import {Button, Form, Input, Select, Table, message} from "antd";
 
 const { Option } = Select;
-
 const { TextArea } = Input;
 
-const dataSource = [
+const columnsRecipients = [
   {
-    key: '1',
-    index: 1,
-    name: 'Mike',
-    phone: '932468795',
-    lang: 'ru',
+    title: '#',
+    dataIndex: 'order',
+    key: 'order',
   },
   {
-    key: '2',
-    index: 2,
-    name: 'John',
-    phone: '902468795',
-    lang: 'uz',
-  }
+    title: 'ФИО',
+    dataIndex: 'name',
+    key: 'name',
+  },
+  {
+    title: 'Телефон',
+    dataIndex: 'phone',
+    key: 'phone',
+  },
+  {
+    title: 'Язык',
+    dataIndex: 'lang',
+    key: 'lang',
+  },
 ];
 
 function App() {
-  const [fileUploadForm] = Form.useForm();
+  const fileInput = useRef(null);
   const [smsForm] = Form.useForm();
   const [lang, setLang] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [notSent, setNotSent] = useState([]);
 
-  const handleChangeLang = (value) => setLang(value);
-
-  const columns = [
-    {
-      title: '#',
-      dataIndex: 'index',
-      key: 'index',
-    },
-    {
-      title: 'ФИО',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Телефон',
-      dataIndex: 'phone',
-      key: 'phone',
-    },
-    {
-      title: 'Язык',
-      dataIndex: 'lang',
-      key: 'lang',
-    },
-  ];
-
-  const [filtered, setFiltered] = useState(dataSource);
+  const [contacts, setContacts] = useState([]);
+  const [filtered, setFiltered] = useState([]);
   useEffect(() => {
     setFiltered(
       lang === 'all'
-        ? [...dataSource]
-        : dataSource.filter(item => item.lang === lang)
+        ? [...contacts]
+        : contacts.filter(item => item.lang === lang)
     );
   }, [lang]);
 
 
-  const handleFinishFU = (values) => {
-    console.log('Success:', values);
-  };
-
-  const handleFailFU = (errorInfo) => {
-    console.log('Failed:', errorInfo);
+  const handleFUSubmit = (e) => {
+    e.preventDefault();
+    if (fileInput.current.files.length === 0) {
+      message.warning("Выберите EXCEL файл для загрузки!");
+      return;
+    }
+    let formData = new FormData();
+    formData.append("file", fileInput.current.files[0]);
+    try {
+      setLoading(true);
+      fetch("http://localhost:8080/api/upload", {
+        method: 'POST',
+        body: formData,
+      })
+      .then(res => res.json())
+      .then(data => {
+        setContacts(data);
+        setFiltered(data);
+        setLoading(false);
+      })
+      .catch(error => {
+        message.error(error);
+        setLoading(false);
+      });
+    } catch (error) {
+      message.error('Ошибка:', error);
+      setLoading(false);
+    }
   };
 
   const handleFinishSmsFrom = (values) => {
-    const payload = {
-      text: values.sms,
-      contacts: filtered.map(item => item.phone)
-    };
-    console.log(payload);
-    reset();
-  };
+    if (!values.sms) {
+      message.warning("Текст сообщения пуст!")
+      return;
+    }
+    if (filtered.length === 0) {
+      message.warning("Список рассылки пуст!");
+      return;
+    }
 
-  const handleFailSmsForm = (errorInfo) => {
-    console.log('Failed:', errorInfo);
+    setLoading(true);
+    try {
+      fetch("http://localhost:8080/api/sms-send", {
+        method: 'POST',
+        body: JSON.stringify({
+          text: values.sms,
+          count: values.count || 5,
+          recipients: filtered.map(item => item.phone)
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          message.success(data.text);
+          setNotSent(data.notSent);
+          reset();
+        })
+        .catch(error => {
+          message.error(error);
+          reset();
+        });
+    } catch (error) {
+      message.error('Ошибка:', error);
+      reset();
+    }
   };
 
   const reset = () => {
     smsForm.resetFields();
-    fileUploadForm.resetFields();
-    setFiltered([]);
-    setLang('all');
+    setLoading(false);
   };
 
   return (
-    <div className="app">
+    <div className={`app ${loading ? 'active' : ''}`}>
       <div className="row">
 
         <div className="col">
           <div className="file-upload">
-            <Form
-              form={fileUploadForm}
-              name="fileupload"
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
-              onFinish={handleFinishFU}
-              onFinishFailed={handleFailFU}
-            >
-              <Upload
-                maxCount={1}
-                accept={"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-              >
-                <Button>Загрузить файл(excel)</Button>
-              </Upload>
-            </Form>
+            <form method="post" onSubmit={handleFUSubmit}>
+              <input
+                ref={fileInput}
+                type="file"
+                name="excel"
+                accept={'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+              />
+              <Button type="primary" htmlType="submit">Загрузить файл</Button>
+            </form>
           </div>
 
           <div className="customer-table m-t-30">
             <div className="m-t-20 m-b-20">
-              <Select defaultValue="all" style={{width: 120}} onChange={handleChangeLang}>
+              <Select defaultValue="all" style={{width: 120}} onChange={setLang}>
                 <Option value="all">Все</Option>
                 <Option value="ru">Ру</Option>
                 <Option value="uz">Уз</Option>
+                <Option value="null">Не указано</Option>
               </Select>
             </div>
             <div className="m-t-20 m-b-20">
@@ -128,7 +152,7 @@ function App() {
               <Table
                 bordered={true}
                 dataSource={filtered}
-                columns={columns}
+                columns={columnsRecipients}
                 pagination={false}
               />
             </div>
@@ -141,19 +165,34 @@ function App() {
             <Form
               form={smsForm}
               name="smsform"
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
+              layout={'vertical'}
               onFinish={handleFinishSmsFrom}
-              onFinishFailed={handleFailSmsForm}
+              onFinishFailed={(error) => console.log(error)}
             >
+              <Form.Item name="count" label={"Количество сообщений для отправки за 1 запрос"}>
+                <Input placeholder={"Введите число от 1 до 5"} />
+              </Form.Item>
               <Form.Item name="sms">
-                <TextArea rows={4} showCount={true} />
+                <TextArea rows={4} showCount={true} allowClear={true} />
               </Form.Item>
               <Form.Item>
                 <Button type="primary" htmlType="submit">Отправить</Button>
               </Form.Item>
             </Form>
           </div>
+
+          {notSent.length > 0 && (
+            <div className="m-t-30 p-l-40">
+              <h3>Не отправленные номера: (<b>{notSent.length}</b>)</h3>
+              <ul>
+                {
+                  notSent.map((item, index) => (
+                    <li key={`notsent${index}`}>#. {item}</li>
+                  ))
+                }
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>
